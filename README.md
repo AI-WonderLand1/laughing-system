@@ -151,11 +151,6 @@ laughing-system/
 
 ---
 
-## Live Demo
-
-View in AI Studio:
-[https://ai.studio/apps/82d52af1-cb0d-422b-867c-fbabc0258179](https://ai.studio/apps/82d52af1-cb0d-422b-867c-fbabc0258179)
-
 ---
 
 ## Roadmap
