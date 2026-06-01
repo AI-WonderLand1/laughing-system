@@ -43,6 +43,9 @@ interface WorkspaceContextType {
   pods: Pod[];
   isSetupComplete: boolean;
   setupConfig: WorkspaceSetup | null;
+  hasSeenLanding: boolean;
+  markLandingSeen: () => void;
+  resetLanding: () => void;
   hybridSplit: boolean;
   synthesisStatus: 'idle' | 'synthesizing' | 'complete';
   activeEngineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom';
@@ -129,6 +132,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentSceneId, setCurrentSceneId] = useState<string | null>('s1');
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [setupConfig, setSetupConfig] = useState<WorkspaceSetup | null>(null);
+  const [hasSeenLanding, setHasSeenLanding] = useState<boolean>(() => {
+    try { return localStorage.getItem('spatial_seen_landing') === '1'; } catch { return false; }
+  });
   const [hybridSplit, setHybridSplit] = useState(false);
   const [synthesisStatus, setSynthesisStatus] = useState<'idle' | 'synthesizing' | 'complete'>('idle');
   const [activeEngineId, setActiveEngineId] = useState<'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom'>('three');
@@ -385,144 +391,317 @@ function onUpdate(time, activeMesh, scene) {
     // Clear any existing pods for this engine first
     setPods(prev => prev.filter(p => !p.id.startsWith(`p_${engineId}`)));
 
-    // Create customized Pod or multiple replica pods
-    if (buildTarget === 'k8s-deployment') {
-      const numReplicas = customOptions?.replicas || 3;
-      addAgentLog(`Creating multi-replica K8s Deployment mapping: scaling is capped at ${numReplicas} pods`, 'info');
-      
-      const replicaPods: Pod[] = Array.from({ length: numReplicas }).map((_, idx) => ({
-        id: `p_${engineId}_replica_${idx + 1}`,
-        name: `${engineId}-deployment-replica-${idx + 1}`,
-        status: 'Pending',
-        cpu: 0,
-        memory: 0,
-        restarts: 0,
-        age: '1s',
-        node: `node-0${(idx % 3) + 1}`,
-        namespace: customOptions?.scalingMetric !== 'None' ? 'autoscale' : 'default'
-      }));
+    // Dispatch on deployment target
+    switch (buildTarget) {
+      // ============== KUBERNETES ==============
+      case 'k8s-deployment': {
+        const numReplicas = customOptions?.replicas || 3;
+        addAgentLog(`Creating multi-replica K8s Deployment mapping: scaling is capped at ${numReplicas} pods`, 'info');
+        const replicaPods: Pod[] = Array.from({ length: numReplicas }).map((_, idx) => ({
+          id: `p_${engineId}_replica_${idx + 1}`,
+          name: `${engineId}-deployment-replica-${idx + 1}`,
+          status: 'Pending', cpu: 0, memory: 0, restarts: 0, age: '1s',
+          node: `node-0${(idx % 3) + 1}`,
+          namespace: customOptions?.scalingMetric !== 'None' ? 'autoscale' : 'default'
+        }));
+        setPods(prev => [...prev, ...replicaPods]);
+        setTimeout(() => addAgentLog('Applying load balancers and ingress hosts config...', 'info'), 1000);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id.startsWith(`p_${engineId}_replica`) ? {
+            ...p, status: 'Running',
+            cpu: Math.floor(Math.random() * 20) + 20,
+            memory: engineId === 'unreal' ? 1024 : 512
+          } : p));
+          addAgentLog(`✔ Kubernetes Deployment finalized successfully: ${numReplicas} active replicas running perfectly.`, 'success');
+        }, 2500);
+        break;
+      }
+      case 'k8s-dev-container': {
+        addAgentLog('Initiating live-mount decontainer workspace binding...', 'thinking');
+        const mPath = customOptions?.mountPath || '/usr/src/app';
+        const devPod: Pod = { id: `p_${engineId}_dev`, name: `${engineId}-dev-decontainer-0`, status: 'Pending', cpu: 1, memory: 256, restarts: 0, age: '1s', node: 'node-01', namespace: 'dev' };
+        setPods(prev => [...prev, devPod]);
+        setTimeout(() => addAgentLog(`Mounting host volumes onto container paths: binding workspace ${mPath}...`, 'info'), 1000);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_dev` ? { ...p, status: 'Running', cpu: 15, memory: 512 } : p));
+          addAgentLog('✔ Kubernetes decontainer online. Real-time file sync watchers established on port 3000!', 'success');
+        }, 2500);
+        break;
+      }
+      case 'k8s-pod': {
+        const newPod: Pod = { id: `p_${engineId}`, name: `${engineId}-k8s-pod-0`, status: 'Pending', cpu: 1, memory: 128, restarts: 0, age: '1s', node: 'node-02', namespace: 'default' };
+        setPods(prev => [...prev, newPod]);
+        setTimeout(() => addAgentLog('Connecting storage claims & starting compiler stream on port 3000...', 'info'), 1000);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}` ? { ...p, status: 'Running', cpu: 32, memory: 768 } : p));
+          addAgentLog('✔ Kubernetes pod in running state! Port 3000 is open.', 'success');
+        }, 2500);
+        break;
+      }
 
-      setPods(prev => [...prev, ...replicaPods]);
+      // ============== CONTAINER ==============
+      case 'docker-image': {
+        addAgentLog('Orchestrating containerized compilation sequence for Docker image...', 'thinking');
+        const base = customOptions?.baseImage || 'node:20-alpine';
+        const reg = customOptions?.registryUrl || 'gcr.io/spatial-3d';
+        const buildPod: Pod = { id: `p_${engineId}_builder`, name: `${engineId}-docker-image-builder`, status: 'Pending', cpu: 2, memory: 512, restarts: 0, age: '1s', node: 'node-02', namespace: 'builds' };
+        setPods(prev => [...prev, buildPod]);
+        setTimeout(() => {
+          addAgentLog(`$ docker build -f ${engineId}.Dockerfile -t ${reg}/${engineId}-render:latest --build-arg BASE_IMAGE=${base}`, 'info');
+          addAgentLog('[Step 1/3] Copying 3D compiler headers: compiling Draco vertex streams...', 'info');
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_builder` ? { ...p, status: 'Running', cpu: 78 } : p));
+        }, 1000);
+        setTimeout(() => addAgentLog('[Step 2/3] Shrinking layout binaries: Draco geometry meshopt pass...', 'info'), 2000);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_builder` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ Docker Image successfully pushed to registry mapping: ${reg}/${engineId}-render:latest`, 'success');
+        }, 3500);
+        break;
+      }
+      case 'docker-container': {
+        addAgentLog('Starting Docker container runtime...', 'thinking');
+        const cPod: Pod = { id: `p_${engineId}_docker`, name: `${engineId}-docker-container-0`, status: 'Pending', cpu: 1, memory: 256, restarts: 0, age: '1s', node: 'node-01', namespace: 'docker' };
+        setPods(prev => [...prev, cPod]);
+        setTimeout(() => addAgentLog('$ docker compose up -d --build', 'info'), 500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_docker` ? { ...p, status: 'Running', cpu: 22, memory: 384 } : p));
+          addAgentLog('✔ Docker container running on localhost:3000. Volume mounts active.', 'success');
+        }, 2000);
+        break;
+      }
+      case 'podman-container': {
+        addAgentLog('Spinning up rootless Podman container (no daemon)...', 'thinking');
+        const pPod: Pod = { id: `p_${engineId}_podman`, name: `${engineId}-podman-rootless-0`, status: 'Pending', cpu: 1, memory: 192, restarts: 0, age: '1s', node: 'localhost', namespace: 'podman' };
+        setPods(prev => [...prev, pPod]);
+        setTimeout(() => addAgentLog('$ podman run --userns=keep-id -p 3000:3000 ' + engineId + '-render:latest', 'info'), 500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_podman` ? { ...p, status: 'Running', cpu: 18, memory: 320 } : p));
+          addAgentLog('✔ Podman rootless container running. UID mapping preserved.', 'success');
+        }, 2000);
+        break;
+      }
+      case 'self-hosted-vps': {
+        addAgentLog('Provisioning bare-metal VPS workspace (Hetzner/DO style)...', 'thinking');
+        const vPod: Pod = { id: `p_${engineId}_vps`, name: `${engineId}-vps-instance-0`, status: 'Pending', cpu: 2, memory: 1024, restarts: 0, age: '1s', node: 'cx22-hetzner-fsn1', namespace: 'bare-metal' };
+        setPods(prev => [...prev, vPod]);
+        setTimeout(() => addAgentLog('$ ansible-playbook -i inventories/vps playbooks/3d-runtime.yml', 'info'), 800);
+        setTimeout(() => addAgentLog('Configuring Caddy reverse proxy + TLS (Let\'s Encrypt)...', 'info'), 1600);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_vps` ? { ...p, status: 'Running', cpu: 28, memory: 896 } : p));
+          addAgentLog('✔ VPS instance reachable at https://' + engineId + '.aether.works', 'success');
+        }, 2800);
+        break;
+      }
 
-      setTimeout(() => {
-        addAgentLog(`Applying load balancers and ingress hosts config...`, 'info');
-      }, 1000);
+      // ============== STATIC / EDGE ==============
+      case 'static-site':
+      case 'vercel':
+      case 'netlify':
+      case 'cloudflare-pages':
+      case 'aws-amplify':
+      case 'github-pages':
+      case 'firebase-hosting': {
+        const labels: Record<string, string> = {
+          'static-site': 'generic static host',
+          'vercel': 'Vercel',
+          'netlify': 'Netlify',
+          'cloudflare-pages': 'Cloudflare Pages',
+          'aws-amplify': 'AWS Amplify',
+          'github-pages': 'GitHub Pages',
+          'firebase-hosting': 'Firebase Hosting'
+        };
+        addAgentLog(`Building static bundle for ${labels[buildTarget]}...`, 'thinking');
+        const outDir = customOptions?.outDir || 'dist';
+        const proj = customOptions?.projectName || `${engineId}-workspace`;
+        const sPod: Pod = { id: `p_${engineId}_static`, name: `${engineId}-static-build-${buildTarget}`, status: 'Pending', cpu: 1, memory: 384, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'edge' };
+        setPods(prev => [...prev, sPod]);
+        setTimeout(() => addAgentLog(`$ vite build --outDir ${outDir} --target esnext`, 'info'), 600);
+        setTimeout(() => addAgentLog('[1/4] Compiling GLSL/WGSL shaders → Wasm...', 'info'), 1300);
+        setTimeout(() => addAgentLog('[2/4] Optimizing glTF meshes with Draco + meshopt...', 'info'), 1900);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_static` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ Static bundle uploaded to ${labels[buildTarget]}: project ${proj}`, 'success');
+        }, 2700);
+        break;
+      }
+      case 'edge-worker':
+      case 'bun-runtime': {
+        const isBun = buildTarget === 'bun-runtime';
+        addAgentLog(`Compiling edge runtime bundle (${isBun ? 'Bun' : 'Cloudflare Workers'})...`, 'thinking');
+        const ePod: Pod = { id: `p_${engineId}_edge`, name: `${engineId}-edge-worker-${isBun ? 'bun' : 'cf'}`, status: 'Pending', cpu: 1, memory: 128, restarts: 0, age: '1s', node: isBun ? 'edge-bun-01' : 'edge-cf-01', namespace: 'edge' };
+        setPods(prev => [...prev, ePod]);
+        const region = customOptions?.edgeRegion || (isBun ? 'iad' : 'auto');
+        setTimeout(() => addAgentLog(`$ ${isBun ? 'bun build' : 'wrangler deploy'} --region ${region}`, 'info'), 600);
+        setTimeout(() => addAgentLog('Shimming WebGPU → compute workers (WASM fallback enabled)...', 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_edge` ? { ...p, status: 'Running', cpu: 8, memory: 96 } : p));
+          addAgentLog(`✔ Edge worker live in ${region}. Cold start < 5ms.`, 'success');
+        }, 2400);
+        break;
+      }
+      case 'railway':
+      case 'fly-io':
+      case 'render': {
+        const labels: Record<string, string> = { 'railway': 'Railway', 'fly-io': 'Fly.io', 'render': 'Render' };
+        addAgentLog(`Deploying to ${labels[buildTarget]}...`, 'thinking');
+        const rPod: Pod = { id: `p_${engineId}_${buildTarget}`, name: `${engineId}-${buildTarget}-service`, status: 'Pending', cpu: 1, memory: 512, restarts: 0, age: '1s', node: buildTarget, namespace: 'paas' };
+        setPods(prev => [...prev, rPod]);
+        setTimeout(() => addAgentLog(`$ ${buildTarget} deploy --service ${engineId}-render`, 'info'), 700);
+        setTimeout(() => addAgentLog('Attaching persistent volume for glTF asset cache...', 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_${buildTarget}` ? { ...p, status: 'Running', cpu: 24, memory: 480 } : p));
+          addAgentLog(`✔ ${labels[buildTarget]} service live. Public URL assigned.`, 'success');
+        }, 2400);
+        break;
+      }
 
-      setTimeout(() => {
-        setPods(prev => prev.map(p => p.id.startsWith(`p_${engineId}_replica`) ? {
-          ...p,
-          status: 'Running',
-          cpu: Math.floor(Math.random() * 20) + 20,
-          memory: engineId === 'unreal' ? 1024 : 512,
-        } : p));
-        addAgentLog(`✔ Kubernetes Deployment finalized successfully: ${numReplicas} active replicas running perfectly.`, 'success');
-      }, 2500);
+      // ============== CLIENT RUNTIMES ==============
+      case 'pwa': {
+        const pwaName = customOptions?.pwaName || `${engineId}-workspace`;
+        const theme = customOptions?.pwaThemeColor || '#00d4ff';
+        addAgentLog(`Generating PWA manifest + service worker for "${pwaName}"...`, 'thinking');
+        const pPod: Pod = { id: `p_${engineId}_pwa`, name: `${engineId}-pwa-build`, status: 'Pending', cpu: 1, memory: 256, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'edge' };
+        setPods(prev => [...prev, pPod]);
+        setTimeout(() => addAgentLog('Pre-caching glTF + HDR assets via Workbox...', 'info'), 700);
+        setTimeout(() => addAgentLog(`Theme color: ${theme} · Display: standalone`, 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_pwa` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ PWA "${pwaName}" ready to install. Install prompt wired.`, 'success');
+        }, 2400);
+        break;
+      }
+      case 'webxr': {
+        const xrRt = customOptions?.xrRuntime || 'webxr';
+        addAgentLog(`Compiling WebXR build (${xrRt}) with hand-tracking + passthrough...`, 'thinking');
+        const xPod: Pod = { id: `p_${engineId}_xr`, name: `${engineId}-webxr-${xrRt}`, status: 'Pending', cpu: 2, memory: 768, restarts: 0, age: '1s', node: 'node-gpu-01', namespace: 'xr' };
+        setPods(prev => [...prev, xPod]);
+        setTimeout(() => addAgentLog('Generating left/right eye render targets at 90Hz...', 'info'), 700);
+        setTimeout(() => addAgentLog('Hooking controller raycast + pinch gestures...', 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_xr` ? { ...p, status: 'Running', cpu: 62, memory: 1024 } : p));
+          addAgentLog(`✔ WebXR build deployed for ${xrRt}. Enter VR from the canvas.`, 'success');
+        }, 2700);
+        break;
+      }
+      case 'iframe-embed': {
+        const allow = (customOptions?.iframeAllowList || ['camera', 'microphone', 'xr-spatial-tracking']).join('; ');
+        addAgentLog(`Generating iframe embed snippet (sandbox + allow="${allow}")...`, 'thinking');
+        const iPod: Pod = { id: `p_${engineId}_embed`, name: `${engineId}-embed-bundle`, status: 'Pending', cpu: 1, memory: 192, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'edge' };
+        setPods(prev => [...prev, iPod]);
+        setTimeout(() => addAgentLog('Postmessage handshake + origin allowlist baked in.', 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_embed` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog('✔ iframe snippet ready: <iframe src="https://embed.aether/' + engineId + '" allow="' + allow + '" />', 'success');
+        }, 2400);
+        break;
+      }
+      case 'wasm-module': {
+        addAgentLog('Compiling scene to standalone WebAssembly module (Emscripten)...', 'thinking');
+        const wPod: Pod = { id: `p_${engineId}_wasm`, name: `${engineId}-wasm-module-build`, status: 'Pending', cpu: 2, memory: 640, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'wasm' };
+        setPods(prev => [...prev, wPod]);
+        setTimeout(() => addAgentLog('$ emcc scene.cpp -O3 -s WASM=1 -s MODULARIZE=1 -o scene.mjs', 'info'), 800);
+        setTimeout(() => addAgentLog('Bundling .wasm + .mjs loader + type definitions...', 'info'), 1800);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_wasm` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ scene.wasm (${engineId}) ready. Import from any JS host.`, 'success');
+        }, 2800);
+        break;
+      }
 
-    } else if (buildTarget === 'docker-image') {
-      addAgentLog(`Orchestrating containerized compilation sequence for Docker image...`, 'thinking');
-      const base = customOptions?.baseImage || 'node:20-alpine';
-      const reg = customOptions?.registryUrl || 'gcr.io/spatial-3d';
-      
-      const buildPod: Pod = {
-        id: `p_${engineId}_builder`,
-        name: `${engineId}-docker-image-builder`,
-        status: 'Pending',
-        cpu: 2,
-        memory: 512,
-        restarts: 0,
-        age: '1s',
-        node: 'node-02',
-        namespace: 'builds'
-      };
+      // ============== NATIVE SHELLS ==============
+      case 'desktop-tauri':
+      case 'desktop-electron': {
+        const isTauri = buildTarget === 'desktop-tauri';
+        const channel = customOptions?.desktopChannel || 'stable';
+        addAgentLog(`Building ${isTauri ? 'Tauri' : 'Electron'} desktop shell (${channel})...`, 'thinking');
+        const dPod: Pod = { id: `p_${engineId}_desktop`, name: `${engineId}-${isTauri ? 'tauri' : 'electron'}-${channel}`, status: 'Pending', cpu: 2, memory: 1024, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'native' };
+        setPods(prev => [...prev, dPod]);
+        setTimeout(() => addAgentLog(`$ ${isTauri ? 'cargo tauri' : 'electron-builder'} build --${channel}`, 'info'), 700);
+        setTimeout(() => addAgentLog('Code-signing binaries (macOS / Windows / Linux)...', 'info'), 1700);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_desktop` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ Desktop bundle ready (~${isTauri ? '8MB' : '120MB'}). Cross-platform installers generated.`, 'success');
+        }, 2700);
+        break;
+      }
+      case 'mobile-capacitor': {
+        const target = customOptions?.mobileTarget || 'both';
+        addAgentLog(`Building mobile app via Capacitor (${target})...`, 'thinking');
+        const mPod: Pod = { id: `p_${engineId}_mobile`, name: `${engineId}-capacitor-${target}`, status: 'Pending', cpu: 2, memory: 896, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'mobile' };
+        setPods(prev => [...prev, mPod]);
+        setTimeout(() => addAgentLog('$ npx cap add ios && npx cap add android', 'info'), 700);
+        setTimeout(() => addAgentLog('Patching WebGL touch gestures + safe-area insets...', 'info'), 1500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_mobile` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ Mobile build ready for ${target}. Open in Xcode / Android Studio.`, 'success');
+        }, 2700);
+        break;
+      }
 
-      setPods(prev => [...prev, buildPod]);
+      // ============== DISTRIBUTION ==============
+      case 'npm-package': {
+        const name = customOptions?.npmPackageName || `@aether/${engineId}-engine`;
+        const access = customOptions?.npmAccess || 'public';
+        addAgentLog(`Publishing ${name} to npm (${access})...`, 'thinking');
+        const nPod: Pod = { id: `p_${engineId}_npm`, name: `${engineId}-npm-publish`, status: 'Pending', cpu: 1, memory: 256, restarts: 0, age: '1s', node: 'build-farm-01', namespace: 'dist' };
+        setPods(prev => [...prev, nPod]);
+        setTimeout(() => addAgentLog('$ npm publish --access ' + access, 'info'), 700);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_npm` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ ${name}@latest published. ${access} access.`, 'success');
+        }, 2400);
+        break;
+      }
+      case 'asset-cdn': {
+        const cdn = customOptions?.cdnProvider || 'cloudflare-r2';
+        addAgentLog(`Pushing optimized glTF/HDR/texture assets to ${cdn}...`, 'thinking');
+        const aPod: Pod = { id: `p_${engineId}_cdn`, name: `${engineId}-cdn-${cdn}`, status: 'Pending', cpu: 1, memory: 384, restarts: 0, age: '1s', node: 'edge-01', namespace: 'cdn' };
+        setPods(prev => [...prev, aPod]);
+        setTimeout(() => addAgentLog('Draco-compressing meshes, KTX2-compressing textures, ffmpeg audio normalization...', 'info'), 800);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}_cdn` ? { ...p, status: 'Succeeded', cpu: 0, memory: 0 } : p));
+          addAgentLog(`✔ Asset bundle on ${cdn}. Cache purges wired.`, 'success');
+        }, 2400);
+        break;
+      }
 
-      setTimeout(() => {
-        addAgentLog(`$ docker build -f ${engineId}.Dockerfile -t ${reg}/${engineId}-render:latest --build-arg BASE_IMAGE=${base}`, 'info');
-        addAgentLog(`[Step 1/3] Copying 3D compiler headers: compiling Draco vertex streams...`, 'info');
-        setPods(prev => prev.map(p => p.id === `p_${engineId}_builder` ? { ...p, status: 'Running', cpu: 78 } : p));
-      }, 1000);
+      // ============== LOCAL ==============
+      case 'local-process':
+      default: {
+        const newPod: Pod = {
+          id: `p_${engineId}`,
+          name: engineId === 'unreal' ? 'unreal-editor-render-pod' :
+                engineId === 'playcanvas' ? 'playcanvas-studio-node-pod' :
+                engineId === 'babylon' ? 'babylon-standard-render-pod' :
+                engineId === 'unity' ? 'unity-wasm-reflect-pod' :
+                engineId === 'godot' ? 'godot4-web-export-pod' :
+                engineId === 'webgpu' ? 'webgpu-compute-shader-pod' :
+                engineId === 'custom' ? 'custom-engine-runtime-pod' : 'threejs-webgpu-sandbox-pod',
+          status: 'Pending',
+          cpu: 1,
+          memory: 128,
+          restarts: 0,
+          age: '1s',
+          node: ['unreal', 'babylon', 'godot', 'webgpu'].includes(engineId) ? 'node-gpu-01' : 'node-02',
+          namespace: 'engine'
+        };
+        setPods(prev => [...prev, newPod]);
 
-      setTimeout(() => {
-        addAgentLog(`[Step 2/3] Shrinking layout binaries: Draco geometry meshopt pass...`, 'info');
-      }, 2000);
+        setTimeout(() => {
+          addAgentLog(`Connecting storage claims & starting compiler stream on port 3000...`, 'info');
+        }, 1000);
 
-      setTimeout(() => {
-        setPods(prev => prev.map(p => p.id === `p_${engineId}_builder` ? {
-          ...p,
-          status: 'Succeeded',
-          cpu: 0,
-          memory: 0,
-        } : p));
-        addAgentLog(`✔ Docker Image successfully pushed to registry mapping: ${reg}/${engineId}-render:latest`, 'success');
-      }, 3500);
-
-    } else if (buildTarget === 'k8s-dev-container') {
-      addAgentLog(`Initiating live-mount decontainer workspace binding...`, 'thinking');
-      const mPath = customOptions?.mountPath || '/usr/src/app';
-      
-      const devPod: Pod = {
-        id: `p_${engineId}_dev`,
-        name: `${engineId}-dev-decontainer-0`,
-        status: 'Pending',
-        cpu: 1,
-        memory: 256,
-        restarts: 0,
-        age: '1s',
-        node: 'node-01',
-        namespace: 'dev'
-      };
-
-      setPods(prev => [...prev, devPod]);
-
-      setTimeout(() => {
-        addAgentLog(`Mounting host volumes onto container paths: binding workspace ${mPath}...`, 'info');
-      }, 1000);
-
-      setTimeout(() => {
-        setPods(prev => prev.map(p => p.id === `p_${engineId}_dev` ? {
-          ...p,
-          status: 'Running',
-          cpu: 15,
-          memory: 512
-        } : p));
-        addAgentLog(`✔ Kubernetes decontainer online. Real-time file sync watchers established on port 3000!`, 'success');
-      }, 2500);
-
-    } else {
-      // Default / standard single pod behavior (e.g. k8s-pod or docker-container or local-process)
-      const newPod: Pod = {
-        id: `p_${engineId}`,
-        name: engineId === 'unreal' ? 'unreal-editor-render-pod' :
-              engineId === 'playcanvas' ? 'playcanvas-studio-node-pod' :
-              engineId === 'babylon' ? 'babylon-standard-render-pod' :
-              engineId === 'unity' ? 'unity-wasm-reflect-pod' :
-              engineId === 'godot' ? 'godot4-web-export-pod' :
-              engineId === 'webgpu' ? 'webgpu-compute-shader-pod' :
-              engineId === 'custom' ? 'custom-engine-runtime-pod' : 'threejs-webgpu-sandbox-pod',
-        status: 'Pending',
-        cpu: 1,
-        memory: 128,
-        restarts: 0,
-        age: '1s',
-        node: ['unreal', 'babylon', 'godot', 'webgpu'].includes(engineId) ? 'node-gpu-01' : 'node-02',
-        namespace: buildTarget === 'docker-container' ? 'docker' : 'engine'
-      };
-      setPods(prev => [...prev, newPod]);
-
-      setTimeout(() => {
-        addAgentLog(`Connecting storage claims & starting compiler stream on port 3000...`, 'info');
-      }, 1000);
-
-      setTimeout(() => {
-        setPods(prev => prev.map(p => p.id === `p_${engineId}` ? {
-          ...p,
-          status: 'Running',
-          cpu: engineId === 'unreal' ? 84 : engineId === 'playcanvas' ? 35 : engineId === 'babylon' ? 42 : engineId === 'unity' ? 55 : engineId === 'godot' ? 38 : engineId === 'webgpu' ? 62 : 20,
-          memory: engineId === 'unreal' ? 3072 : engineId === 'playcanvas' ? 1024 : engineId === 'babylon' ? 1280 : engineId === 'unity' ? 1536 : engineId === 'godot' ? 768 : engineId === 'webgpu' ? 2048 : 512,
-        } : p));
-        addAgentLog(`✔ [${buildTarget.toUpperCase()}] ${engineId.toUpperCase()} workspace container in running state! Port 3000 is open.`, 'success');
-      }, 2500);
+        setTimeout(() => {
+          setPods(prev => prev.map(p => p.id === `p_${engineId}` ? {
+            ...p,
+            status: 'Running',
+            cpu: engineId === 'unreal' ? 84 : engineId === 'playcanvas' ? 35 : engineId === 'babylon' ? 42 : engineId === 'unity' ? 55 : engineId === 'godot' ? 38 : engineId === 'webgpu' ? 62 : 20,
+            memory: engineId === 'unreal' ? 3072 : engineId === 'playcanvas' ? 1024 : engineId === 'babylon' ? 1280 : engineId === 'unity' ? 1536 : engineId === 'godot' ? 768 : engineId === 'webgpu' ? 2048 : 512,
+          } : p));
+          addAgentLog(`✔ [${buildTarget.toUpperCase()}] ${engineId.toUpperCase()} workspace container in running state! Port 3000 is open.`, 'success');
+        }, 2500);
+        break;
+      }
     }
   };
 
@@ -661,6 +840,21 @@ function onUpdate(time, activeMesh, scene) {
     addAgentLog(`Created new scene: ${name}`, 'success');
     createCheckpoint(`Created and persisted scene: ${name}`);
   };
+
+  const markLandingSeen = useCallback(() => {
+    setHasSeenLanding(true);
+    try { localStorage.setItem('spatial_seen_landing', '1'); } catch {}
+  }, []);
+
+  const resetLanding = useCallback(() => {
+    setHasSeenLanding(false);
+    setIsSetupComplete(false);
+    setSetupConfig(null);
+    try {
+      localStorage.removeItem('spatial_seen_landing');
+      localStorage.removeItem('spatial_setup');
+    } catch {}
+  }, []);
 
   const completeSetup = (setup: WorkspaceSetup) => {
     setSetupConfig(setup);
@@ -839,6 +1033,7 @@ function onUpdate(time, activeMesh, scene) {
       setFiles, openFile, closeTab, setActiveTabPath, saveActiveFile, updateTabContent, sendTerminalCommand, addAgentLog,
       setViewMode, setSidebarOpen, setAgentSidebarOpen, setTargetUrl, updateConfig, addPipelineItem,
       setEntities, addEntity, updateEntity, deleteEntity, addPrefab, saveScene, loadScene, createScene, refreshPods, rebootPod, deletePod, completeSetup, spinUpEnginePod,
+      hasSeenLanding, markLandingSeen, resetLanding,
       
       // NEW HANDLERS EXPOSED
       errors, checkpoints, isSaving, createCheckpoint, recordError, resolveError, triggerErrorRemediation, restoreCheckpoint, clearCheckpoints,

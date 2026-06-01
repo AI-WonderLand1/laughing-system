@@ -107,7 +107,41 @@ export interface Scene {
   timestamp: number;
 }
 
-export type DeploymentTarget = 'k8s-pod' | 'k8s-dev-container' | 'k8s-deployment' | 'docker-container' | 'docker-image' | 'local-process';
+export type DeploymentTarget =
+  // --- Cluster / container ---
+  | 'k8s-pod'
+  | 'k8s-deployment'
+  | 'k8s-dev-container'
+  | 'docker-container'
+  | 'docker-image'
+  | 'podman-container'
+  | 'self-hosted-vps'
+  // --- Static / edge / serverless ---
+  | 'static-site'
+  | 'vercel'
+  | 'netlify'
+  | 'cloudflare-pages'
+  | 'edge-worker'
+  | 'aws-amplify'
+  | 'github-pages'
+  | 'firebase-hosting'
+  | 'bun-runtime'
+  | 'railway'
+  | 'fly-io'
+  | 'render'
+  // --- Client runtimes ---
+  | 'pwa'
+  | 'webxr'
+  | 'iframe-embed'
+  | 'wasm-module'
+  // --- Native shells ---
+  | 'desktop-tauri'
+  | 'desktop-electron'
+  | 'mobile-capacitor'
+  // --- Distribution ---
+  | 'npm-package'
+  | 'asset-cdn'
+  | 'local-process';
 
 export interface WorkspaceSetup {
   engineVersion: 'v3-stable' | 'v4-beta' | 'v2-legacy' | 'hybrid-custom';
@@ -129,6 +163,23 @@ export interface WorkspaceSetup {
     mountPath?: string;
     autoUpdate?: boolean;
     scalingMetric?: string;
+    // Static / edge
+    outDir?: string;
+    projectName?: string;
+    framework?: 'vite' | 'next' | 'astro' | 'sveltekit' | 'nuxt' | 'remix' | 'static';
+    edgeRegion?: string;
+    // Distribution
+    npmPackageName?: string;
+    npmAccess?: 'public' | 'restricted';
+    cdnProvider?: 'cloudflare-r2' | 'aws-s3' | 'bunny-cdn' | 'fastly' | 'vercel-edge';
+    // WebXR / mobile / desktop
+    xrRuntime?: 'webxr' | 'meta-quest' | 'visionos' | 'androidxr';
+    mobileTarget?: 'ios' | 'android' | 'both';
+    desktopChannel?: 'stable' | 'beta' | 'nightly';
+    // PWA / iframe
+    pwaName?: string;
+    pwaThemeColor?: string;
+    iframeAllowList?: string[];
   };
 }
 

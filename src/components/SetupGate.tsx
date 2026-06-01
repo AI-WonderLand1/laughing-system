@@ -26,7 +26,7 @@ import { motion, AnimatePresence } from 'motion/react';
 type Step = 'orchestration' | 'connectivity' | 'deployment' | 'synthesis';
 
 export default function SetupGate() {
-  const { completeSetup, addAgentLog } = useWorkspace();
+  const { completeSetup, addAgentLog, resetLanding } = useWorkspace();
   const [currentStep, setCurrentStep] = useState<Step>('orchestration');
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
@@ -207,6 +207,13 @@ export default function SetupGate() {
         {/* SIDEBAR: BUILD PHASES */}
         <aside className="bg-[#0b0c10] border-r border-[#151921] py-5 flex flex-col overflow-y-auto no-scrollbar justify-between">
            <div className="px-3">
+              <button
+                onClick={() => resetLanding()}
+                className="w-full mb-4 px-2 py-1.5 text-[10px] font-mono text-[#64748b] hover:text-white border border-transparent hover:border-[#1b1f26] rounded transition-colors flex items-center gap-1.5"
+                title="Back to landing page"
+              >
+                ← Back to home
+              </button>
               <div className="font-mono text-[9px] font-bold tracking-[0.15em] text-[#64748b] uppercase mb-4 px-2">Build Phases</div>
               <div className="space-y-1">
                  <PhaseItem num="01" name="Orchestration" status={currentIndex > 0 ? 'done' : currentIndex === 0 ? 'active' : 'pending'} onClick={() => setCurrentStep('orchestration')} />
@@ -437,62 +444,269 @@ export default function SetupGate() {
                               <span className="text-[#00b8ff] text-[9px] font-mono">Select a target to customize build variables</span>
                            </div>
 
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                              <TopologyCard
-                                id="k8s-pod"
-                                selected={deployment === 'k8s-pod'}
-                                onClick={() => selectTopologyWithAutoAdvance('k8s-pod')}
-                                icon={<Layers size={16} />}
-                                title="Kubernetes Pods"
-                                desc="Deploy basic isolated cloud computing nodes."
-                                accent="green"
-                              />
-                              <TopologyCard
-                                id="k8s-dev-container"
-                                selected={deployment === 'k8s-dev-container'}
-                                onClick={() => selectTopologyWithAutoAdvance('k8s-dev-container')}
-                                icon={<Terminal size={16} />}
-                                title="K8s Dev-Container"
-                                desc="Live sync compiler and micro-reload loops (decontainer)."
-                                accent="blue"
-                              />
-                              <TopologyCard
-                                id="k8s-deployment"
-                                selected={deployment === 'k8s-deployment'}
-                                onClick={() => selectTopologyWithAutoAdvance('k8s-deployment')}
-                                icon={<Network size={16} />}
-                                title="K8s Deployment"
-                                desc="Multi-replica scalable production architecture targets."
-                                accent="yellow"
-                              />
-                              <TopologyCard
-                                id="docker-container"
-                                selected={deployment === 'docker-container'}
-                                onClick={() => selectTopologyWithAutoAdvance('docker-container')}
-                                icon={<Server size={16} />}
-                                title="Docker Isolated"
-                                desc="Port mapping, standard isolated container environment."
-                                accent="purple"
-                              />
-                              <TopologyCard
-                                id="docker-image"
-                                selected={deployment === 'docker-image'}
-                                onClick={() => selectTopologyWithAutoAdvance('docker-image')}
-                                icon={<Database size={16} />}
-                                title="Docker Image Target"
-                                desc="Compile down to raw Docker registry images."
-                                accent="blue"
-                              />
-                              <TopologyCard
-                                id="local-process"
-                                selected={deployment === 'local-process'}
-                                onClick={() => selectTopologyWithAutoAdvance('local-process')}
-                                icon={<Cloud size={16} />}
-                                title="Direct Local Host"
-                                desc="High-speed local context memory boundaries."
-                                accent="purple"
-                              />
-                           </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                               <TopologyCard
+                                 id="k8s-pod"
+                                 selected={deployment === 'k8s-pod'}
+                                 onClick={() => selectTopologyWithAutoAdvance('k8s-pod')}
+                                 icon={<Layers size={16} />}
+                                 title="Kubernetes Pods"
+                                 desc="Deploy basic isolated cloud computing nodes."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="k8s-dev-container"
+                                 selected={deployment === 'k8s-dev-container'}
+                                 onClick={() => selectTopologyWithAutoAdvance('k8s-dev-container')}
+                                 icon={<Terminal size={16} />}
+                                 title="K8s Dev-Container"
+                                 desc="Live sync compiler and micro-reload loops (decontainer)."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="k8s-deployment"
+                                 selected={deployment === 'k8s-deployment'}
+                                 onClick={() => selectTopologyWithAutoAdvance('k8s-deployment')}
+                                 icon={<Network size={16} />}
+                                 title="K8s Deployment"
+                                 desc="Multi-replica scalable production architecture targets."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="docker-container"
+                                 selected={deployment === 'docker-container'}
+                                 onClick={() => selectTopologyWithAutoAdvance('docker-container')}
+                                 icon={<Server size={16} />}
+                                 title="Docker Isolated"
+                                 desc="Port mapping, standard isolated container environment."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="docker-image"
+                                 selected={deployment === 'docker-image'}
+                                 onClick={() => selectTopologyWithAutoAdvance('docker-image')}
+                                 icon={<Database size={16} />}
+                                 title="Docker Image Target"
+                                 desc="Compile down to raw Docker registry images."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="local-process"
+                                 selected={deployment === 'local-process'}
+                                 onClick={() => selectTopologyWithAutoAdvance('local-process')}
+                                 icon={<Cloud size={16} />}
+                                 title="Direct Local Host"
+                                 desc="High-speed local context memory boundaries."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="podman-container"
+                                 selected={deployment === 'podman-container'}
+                                 onClick={() => selectTopologyWithAutoAdvance('podman-container')}
+                                 icon={<Server size={16} />}
+                                 title="Podman Rootless"
+                                 desc="Daemonless rootless containers with UID mapping."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="self-hosted-vps"
+                                 selected={deployment === 'self-hosted-vps'}
+                                 onClick={() => selectTopologyWithAutoAdvance('self-hosted-vps')}
+                                 icon={<Server size={16} />}
+                                 title="Self-Hosted VPS"
+                                 desc="Ansible-provisioned Hetzner / DO / OVH instance."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="static-site"
+                                 selected={deployment === 'static-site'}
+                                 onClick={() => selectTopologyWithAutoAdvance('static-site')}
+                                 icon={<Globe size={16} />}
+                                 title="Static Site"
+                                 desc="Pre-rendered static bundle, any host."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="vercel"
+                                 selected={deployment === 'vercel'}
+                                 onClick={() => selectTopologyWithAutoAdvance('vercel')}
+                                 icon={<Globe size={16} />}
+                                 title="Vercel"
+                                 desc="Edge-cached deploys with HMR + preview URLs."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="netlify"
+                                 selected={deployment === 'netlify'}
+                                 onClick={() => selectTopologyWithAutoAdvance('netlify')}
+                                 icon={<Globe size={16} />}
+                                 title="Netlify"
+                                 desc="Atomic deploys with edge functions."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="cloudflare-pages"
+                                 selected={deployment === 'cloudflare-pages'}
+                                 onClick={() => selectTopologyWithAutoAdvance('cloudflare-pages')}
+                                 icon={<Globe size={16} />}
+                                 title="Cloudflare Pages"
+                                 desc="Global edge deploy with KV bindings."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="edge-worker"
+                                 selected={deployment === 'edge-worker'}
+                                 onClick={() => selectTopologyWithAutoAdvance('edge-worker')}
+                                 icon={<Globe size={16} />}
+                                 title="Edge Worker"
+                                 desc="Cloudflare Workers / Deno Deploy / Vercel Edge."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="aws-amplify"
+                                 selected={deployment === 'aws-amplify'}
+                                 onClick={() => selectTopologyWithAutoAdvance('aws-amplify')}
+                                 icon={<Cloud size={16} />}
+                                 title="AWS Amplify"
+                                 desc="Full-stack hosting with CI/CD from your repo."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="github-pages"
+                                 selected={deployment === 'github-pages'}
+                                 onClick={() => selectTopologyWithAutoAdvance('github-pages')}
+                                 icon={<Globe size={16} />}
+                                 title="GitHub Pages"
+                                 desc="Push to main, get a *.github.io URL."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="firebase-hosting"
+                                 selected={deployment === 'firebase-hosting'}
+                                 onClick={() => selectTopologyWithAutoAdvance('firebase-hosting')}
+                                 icon={<Cloud size={16} />}
+                                 title="Firebase Hosting"
+                                 desc="Globally cached static + SSR hosting."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="bun-runtime"
+                                 selected={deployment === 'bun-runtime'}
+                                 onClick={() => selectTopologyWithAutoAdvance('bun-runtime')}
+                                 icon={<Cpu size={16} />}
+                                 title="Bun Runtime"
+                                 desc="Bun-native edge with WebGPU shims."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="railway"
+                                 selected={deployment === 'railway'}
+                                 onClick={() => selectTopologyWithAutoAdvance('railway')}
+                                 icon={<Cloud size={16} />}
+                                 title="Railway"
+                                 desc="One-click PaaS with Postgres + volumes."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="fly-io"
+                                 selected={deployment === 'fly-io'}
+                                 onClick={() => selectTopologyWithAutoAdvance('fly-io')}
+                                 icon={<Cloud size={16} />}
+                                 title="Fly.io"
+                                 desc="Edge PaaS with WireGuard mesh + volumes."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="render"
+                                 selected={deployment === 'render'}
+                                 onClick={() => selectTopologyWithAutoAdvance('render')}
+                                 icon={<Cloud size={16} />}
+                                 title="Render"
+                                 desc="Web services, static sites, and cron jobs."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="pwa"
+                                 selected={deployment === 'pwa'}
+                                 onClick={() => selectTopologyWithAutoAdvance('pwa')}
+                                 icon={<Globe size={16} />}
+                                 title="PWA"
+                                 desc="Installable web app with offline glTF cache."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="webxr"
+                                 selected={deployment === 'webxr'}
+                                 onClick={() => selectTopologyWithAutoAdvance('webxr')}
+                                 icon={<Globe size={16} />}
+                                 title="WebXR (Quest / Vision Pro)"
+                                 desc="Stereoscopic 90Hz render, hand + controller."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="iframe-embed"
+                                 selected={deployment === 'iframe-embed'}
+                                 onClick={() => selectTopologyWithAutoAdvance('iframe-embed')}
+                                 icon={<Box size={16} />}
+                                 title="iframe Embed"
+                                 desc="Drop the 3D scene into any site, sandboxed."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="wasm-module"
+                                 selected={deployment === 'wasm-module'}
+                                 onClick={() => selectTopologyWithAutoAdvance('wasm-module')}
+                                 icon={<Cpu size={16} />}
+                                 title="WebAssembly Module"
+                                 desc="Standalone .wasm + .mjs export."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="desktop-tauri"
+                                 selected={deployment === 'desktop-tauri'}
+                                 onClick={() => selectTopologyWithAutoAdvance('desktop-tauri')}
+                                 icon={<Cpu size={16} />}
+                                 title="Desktop (Tauri)"
+                                 desc="Tiny native shell, ~8MB, all OSes."
+                                 accent="blue"
+                               />
+                               <TopologyCard
+                                 id="desktop-electron"
+                                 selected={deployment === 'desktop-electron'}
+                                 onClick={() => selectTopologyWithAutoAdvance('desktop-electron')}
+                                 icon={<Cpu size={16} />}
+                                 title="Desktop (Electron)"
+                                 desc="Cross-platform installers with auto-update."
+                                 accent="purple"
+                               />
+                               <TopologyCard
+                                 id="mobile-capacitor"
+                                 selected={deployment === 'mobile-capacitor'}
+                                 onClick={() => selectTopologyWithAutoAdvance('mobile-capacitor')}
+                                 icon={<Layers size={16} />}
+                                 title="Mobile (Capacitor)"
+                                 desc="iOS + Android via native WebView shell."
+                                 accent="green"
+                               />
+                               <TopologyCard
+                                 id="npm-package"
+                                 selected={deployment === 'npm-package'}
+                                 onClick={() => selectTopologyWithAutoAdvance('npm-package')}
+                                 icon={<Box size={16} />}
+                                 title="NPM Package"
+                                 desc="Publish a reusable engine / library."
+                                 accent="yellow"
+                               />
+                               <TopologyCard
+                                 id="asset-cdn"
+                                 selected={deployment === 'asset-cdn'}
+                                 onClick={() => selectTopologyWithAutoAdvance('asset-cdn')}
+                                 icon={<Cloud size={16} />}
+                                 title="Asset CDN"
+                                 desc="Cloudflare R2 / S3 / Fastly for glTF + textures."
+                                 accent="blue"
+                               />
+                            </div>
 
                            {/* Interactive Build Customization Panel */}
                            <div className="mt-5 p-5 bg-[#0e1115]/80 border border-[#1b1f26] rounded-xl space-y-4">
