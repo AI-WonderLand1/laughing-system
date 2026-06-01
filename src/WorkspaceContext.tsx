@@ -45,10 +45,10 @@ interface WorkspaceContextType {
   setupConfig: WorkspaceSetup | null;
   hybridSplit: boolean;
   synthesisStatus: 'idle' | 'synthesizing' | 'complete';
-  activeEngineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'custom';
+  activeEngineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom';
   setHybridSplit: (val: boolean) => void;
   setSynthesisStatus: (status: 'idle' | 'synthesizing' | 'complete') => void;
-  spinUpEnginePod: (engineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'custom', buildTarget?: DeploymentTarget, customOptions?: any) => void;
+  spinUpEnginePod: (engineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom', buildTarget?: DeploymentTarget, customOptions?: any) => void;
   customEngineConfig: CustomEngineConfig;
   updateCustomEngineConfig: (updates: Partial<CustomEngineConfig>) => void;
   
@@ -131,7 +131,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [setupConfig, setSetupConfig] = useState<WorkspaceSetup | null>(null);
   const [hybridSplit, setHybridSplit] = useState(false);
   const [synthesisStatus, setSynthesisStatus] = useState<'idle' | 'synthesizing' | 'complete'>('idle');
-  const [activeEngineId, setActiveEngineId] = useState<'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'custom'>('three');
+  const [activeEngineId, setActiveEngineId] = useState<'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom'>('three');
 
   const [customEngineConfig, setCustomEngineConfig] = useState<CustomEngineConfig>(() => {
     try {
@@ -373,7 +373,7 @@ function onUpdate(time, activeMesh, scene) {
   };
 
   const spinUpEnginePod = (
-    engineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'custom',
+    engineId: 'unreal' | 'playcanvas' | 'unity' | 'three' | 'babylon' | 'godot' | 'webgpu' | 'custom',
     buildTarget: DeploymentTarget = 'k8s-pod',
     customOptions: any = {}
   ) => {
@@ -496,13 +496,16 @@ function onUpdate(time, activeMesh, scene) {
         name: engineId === 'unreal' ? 'unreal-editor-render-pod' :
               engineId === 'playcanvas' ? 'playcanvas-studio-node-pod' :
               engineId === 'babylon' ? 'babylon-standard-render-pod' :
-              engineId === 'unity' ? 'unity-wasm-reflect-pod' : 'threejs-webgpu-sandbox-pod',
+              engineId === 'unity' ? 'unity-wasm-reflect-pod' :
+              engineId === 'godot' ? 'godot4-web-export-pod' :
+              engineId === 'webgpu' ? 'webgpu-compute-shader-pod' :
+              engineId === 'custom' ? 'custom-engine-runtime-pod' : 'threejs-webgpu-sandbox-pod',
         status: 'Pending',
         cpu: 1,
         memory: 128,
         restarts: 0,
         age: '1s',
-        node: ['unreal', 'babylon'].includes(engineId) ? 'node-gpu-01' : 'node-02',
+        node: ['unreal', 'babylon', 'godot', 'webgpu'].includes(engineId) ? 'node-gpu-01' : 'node-02',
         namespace: buildTarget === 'docker-container' ? 'docker' : 'engine'
       };
       setPods(prev => [...prev, newPod]);
@@ -515,8 +518,8 @@ function onUpdate(time, activeMesh, scene) {
         setPods(prev => prev.map(p => p.id === `p_${engineId}` ? {
           ...p,
           status: 'Running',
-          cpu: engineId === 'unreal' ? 84 : engineId === 'playcanvas' ? 35 : engineId === 'babylon' ? 42 : engineId === 'unity' ? 55 : 20,
-          memory: engineId === 'unreal' ? 3072 : engineId === 'playcanvas' ? 1024 : engineId === 'babylon' ? 1280 : engineId === 'unity' ? 1536 : 512,
+          cpu: engineId === 'unreal' ? 84 : engineId === 'playcanvas' ? 35 : engineId === 'babylon' ? 42 : engineId === 'unity' ? 55 : engineId === 'godot' ? 38 : engineId === 'webgpu' ? 62 : 20,
+          memory: engineId === 'unreal' ? 3072 : engineId === 'playcanvas' ? 1024 : engineId === 'babylon' ? 1280 : engineId === 'unity' ? 1536 : engineId === 'godot' ? 768 : engineId === 'webgpu' ? 2048 : 512,
         } : p));
         addAgentLog(`✔ [${buildTarget.toUpperCase()}] ${engineId.toUpperCase()} workspace container in running state! Port 3000 is open.`, 'success');
       }, 2500);

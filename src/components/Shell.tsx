@@ -16,6 +16,9 @@ import PluginsView from './PluginsView';
 import PodStudio from './PodStudio';
 import BillingView from './BillingView';
 import IntegrityDashboard from './IntegrityDashboard';
+import DatabaseView from './DatabaseView';
+import GitView from './GitView';
+import SearchView from './SearchView';
 import { ChevronDown, BrainCircuit, Box, Sparkles, Layers } from 'lucide-react';
 
 const COLORS = {
@@ -43,6 +46,9 @@ const COLORS = {
 const NAV_TABS = [
   { id: "pod-studio", label: "📦 3D Pod Studio" },
   { id: "assistant", label: "AI Intelligence" },
+  { id: "search", label: "🔍 Search" },
+  { id: "git", label: "🔀 Version Control" },
+  { id: "database", label: "🗄️ Database" },
   { id: "integrity", label: "🛡️ Integrity & Backups" },
   { id: "infrastructure", label: "Clusters & Pods" },
   { id: "design", label: "UI Design" },
@@ -178,6 +184,9 @@ export default function Shell() {
       case 'plugins': return <PluginsView />;
       case 'billing': return <BillingView />;
       case 'integrity': return <IntegrityDashboard />;
+      case 'database': return <DatabaseView />;
+      case 'git': return <GitView />;
+      case 'search': return <SearchView />;
       default: return <SpatialView />;
     }
   };

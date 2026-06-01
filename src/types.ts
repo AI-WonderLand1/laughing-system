@@ -1,4 +1,4 @@
-export type ViewMode = 'pod-studio' | 'design' | 'engine' | 'spatial' | 'code' | 'pipeline' | 'settings' | 'infrastructure' | 'assistant' | 'plugins' | 'billing' | 'integrity';
+export type ViewMode = 'pod-studio' | 'design' | 'engine' | 'spatial' | 'code' | 'pipeline' | 'settings' | 'infrastructure' | 'assistant' | 'plugins' | 'billing' | 'integrity' | 'database' | 'git' | 'search';
 
 export interface WorkspaceError {
   id: string;
@@ -54,7 +54,7 @@ export interface AgentLog {
 
 export interface WorkspaceConfig {
   theme: "brutalist" | "minimal" | "cyber" | "soft";
-  engine: "three" | "babylon" | "playcanvas" | "unity-webgl" | "unreal" | "custom";
+  engine: "three" | "babylon" | "playcanvas" | "unity-webgl" | "unreal" | "godot" | "webgpu" | "custom";
   aiProvider?: "spatial-v9" | "gemini-pro" | "opencode-ai";
   pipeline: {
     autoOptimize: boolean;
