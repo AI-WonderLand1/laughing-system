@@ -1,0 +1,11 @@
+{
+  "name": "Spatial 3D IDE",
+  "description": "A high-fidelity spatial development environment for AI-powered scene construction, engine orchestration, and local-first 3D coding workflow.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
