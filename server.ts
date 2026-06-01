@@ -17,6 +17,86 @@ function getStripeInstance(): Stripe | null {
   return stripeClient;
 }
 
+// ----------------- OPENCODE AI PROVIDER -----------------
+// Talks to a local `opencode serve` instance (default: http://127.0.0.1:4096)
+// Start it with:  opencode serve --port 4096
+// Optional basic auth: OPENCODE_USERNAME / OPENCODE_PASSWORD (or OPENCODE_SERVER_PASSWORD)
+const OPENCODE_URL = (process.env.OPENCODE_URL || 'http://127.0.0.1:4096').replace(/\/+$/, '');
+const OPENCODE_USERNAME = process.env.OPENCODE_USERNAME || process.env.OPENCODE_SERVER_USERNAME || 'opencode';
+const OPENCODE_PASSWORD = process.env.OPENCODE_PASSWORD || process.env.OPENCODE_SERVER_PASSWORD || '';
+
+function opencodeHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (OPENCODE_PASSWORD) {
+    const token = Buffer.from(`${OPENCODE_USERNAME}:${OPENCODE_PASSWORD}`).toString('base64');
+    h['Authorization'] = `Basic ${token}`;
+  }
+  return h;
+}
+
+async function opencodeHealth(): Promise<{ ok: boolean; version?: string; error?: string }> {
+  try {
+    const r = await fetch(`${OPENCODE_URL}/global/health`, { headers: opencodeHeaders() });
+    if (!r.ok) return { ok: false, error: `opencode responded ${r.status}` };
+    const data: any = await r.json();
+    return { ok: !!data.healthy, version: data.version };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'opencode unreachable' };
+  }
+}
+
+async function opencodeComplete(systemPrompt: string, userPrompt: string, opts: { model?: string; agent?: string } = {}): Promise<string> {
+  // 1. Create a session
+  const sessionRes = await fetch(`${OPENCODE_URL}/session`, {
+    method: 'POST',
+    headers: opencodeHeaders(),
+    body: JSON.stringify({ title: 'AetherOS AI' })
+  });
+  if (!sessionRes.ok) throw new Error(`opencode /session ${sessionRes.status}: ${await sessionRes.text()}`);
+  const session: any = await sessionRes.json();
+  const sessionId = session.id;
+  if (!sessionId) throw new Error('opencode returned no session id');
+
+  // 2. Post the message and wait for the response
+  const body: any = {
+    parts: [
+      { type: 'text', text: userPrompt }
+    ]
+  };
+  if (systemPrompt) body.system = systemPrompt;
+  if (opts.model) body.model = opts.model;
+  if (opts.agent) body.agent = opts.agent;
+
+  const msgRes = await fetch(`${OPENCODE_URL}/session/${sessionId}/message`, {
+    method: 'POST',
+    headers: opencodeHeaders(),
+    body: JSON.stringify(body)
+  });
+  if (!msgRes.ok) throw new Error(`opencode /message ${msgRes.status}: ${await msgRes.text()}`);
+
+  const data: any = await msgRes.json();
+  // Concatenate all text parts returned by opencode
+  const parts: any[] = data?.parts || [];
+  const text = parts
+    .filter(p => p?.type === 'text' && typeof p.text === 'string')
+    .map(p => p.text)
+    .join('\n')
+    .trim();
+  return text;
+}
+
+async function tryOpencode(systemPrompt: string, userPrompt: string): Promise<string | null> {
+  try {
+    const health = await opencodeHealth();
+    if (!health.ok) return null;
+    const out = await opencodeComplete(systemPrompt, userPrompt);
+    return out || null;
+  } catch (e) {
+    console.error('OpenCode AI failed:', (e as Error).message);
+    return null;
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json()); // Add JSON parsing middleware
@@ -177,6 +257,16 @@ async function startServer() {
     });
   });
 
+  // OpenCode AI health probe
+  app.get('/api/ai/status', async (_req, res) => {
+    const health = await opencodeHealth();
+    res.json({
+      provider: 'opencode',
+      url: OPENCODE_URL,
+      ...health
+    });
+  });
+
   // Secure Dynamic Auto-Remediation and AI Healer endpoint
   app.post('/api/security/remediate-error', async (req, res) => {
     try {
@@ -186,50 +276,36 @@ async function startServer() {
       }
 
       let solution = "";
-      const apiKey = process.env.GEMINI_API_KEY;
 
-      if (apiKey) {
-        try {
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({
-            apiKey: apiKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          
-          const prompt = `You are the AetherOS Live-Response AI Security Officer. A workspace section has triggered a critical component error. 
-          Analyze the following error details and generate a highly technical, precise remediation solution summary explaining how the AI healed the issue (e.g. flushed system cache, reallocated memory boundaries, patched TLS protocols, bypassed proxy handshakes).
-          
-          Error Context:
-          - Section: ${error.section}
-          - Error Code: ${error.code}
-          - Message: ${error.message}
-          
-          Return a concise 2-sentence maximum statement structured precisely like a security officer patch log. Start with "REMEDIATION APPLIED:" and detail the mechanical fix.`;
-          
-          const gResponse = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: prompt
-          });
-          
-          solution = gResponse.text ? gResponse.text.trim() : "";
-        } catch (genAiErr) {
-          console.error("Gemini failed, using rules fallback", genAiErr);
+      const systemPrompt = `You are the AetherOS Live-Response AI Officer for a spatial workspace. Behave like a precise patch-log generator. Output at most 2 sentences, prefixed with "REMEDIATION APPLIED:" and ending with a period. No prose, no preamble, no markdown.`;
+      const userPrompt = `Workspace error to heal:
+- Section: ${error.section}
+- Code: ${error.code}
+- Message: ${error.message}
+
+Produce the remediation patch log line now.`;
+
+      const aiOut = await tryOpencode(systemPrompt, userPrompt);
+      if (aiOut) {
+        solution = aiOut.replace(/^["'`\s]+|["'`\s]+$/g, '');
+        if (!solution.toUpperCase().startsWith('REMEDIATION APPLIED')) {
+          solution = `REMEDIATION APPLIED: ${solution}`;
         }
       }
 
       if (!solution) {
         if (error.code?.includes('OOM') || error.code?.includes('MEM')) {
-          solution = `REMEDIATION APPLIED: Executed garbage collection trigger to clear active heap indices. Scaled Kubenet container memory limit thresholds up to 4096MB and restarted cluster routing safely.`;
+          solution = `REMEDIATION APPLIED: Executed garbage collection trigger to clear active heap indices. Scaled cluster container memory limit thresholds up to 4096MB and restarted routing safely.`;
         } else if (error.code?.includes('STRIPE')) {
           solution = `REMEDIATION APPLIED: Configured local secure proxy sandbox credentials inside process thread. TLS checkout loop verified and operating in high-security trial emulation mode.`;
         } else if (error.code?.includes('DRACO')) {
           solution = `REMEDIATION APPLIED: Cleaned Draco vertex mesh decompression buffer overflow caches. Reloaded WebAssembly runtime pipelines to flush faulty coordinate arrays.`;
         } else {
-          solution = `REMEDIATION APPLIED: Dynamic firewall sandbox container refreshed. Flushed TCP connections, isolated target vector thread, and normalized host component bindings.`;
+          solution = `REMEDIATION APPLIED: Dynamic sandbox container refreshed. Flushed TCP connections, isolated target vector thread, and normalized host component bindings.`;
         }
       }
 
-      res.json({ success: true, solution });
+      res.json({ success: true, solution, source: aiOut ? 'opencode' : 'rules' });
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });
@@ -243,12 +319,68 @@ async function startServer() {
   app.post('/api/architect/generate', async (req, res) => {
     try {
       const { prompt, currentEntities } = req.body;
-      
-      const { GoogleGenAI, Type } = await import('@google/genai');
-      const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
+
+      const systemPrompt = `You are the AetherOS Spatial Architect. Output ONLY valid JSON. No commentary, no markdown fences.`;
+      const userPrompt = `Current scene entities: ${JSON.stringify(currentEntities || [])}
+User request: ${prompt}
+
+Generate NEW entities to add to the scene. Each entity has:
+{ "name": string, "type": "mesh" | "light", "x": number, "y": number, "z": number, "scale": number, "properties": { "color"?: string, "intensity"?: number, "emissive"?: boolean } }
+
+Return ONLY a JSON array of new entities.`;
+
+      let entities: any[] = [];
+      const aiOut = await tryOpencode(systemPrompt, userPrompt);
+      if (aiOut) {
+        const match = aiOut.match(/\[[\s\S]*\]/);
+        const jsonText = match ? match[0] : aiOut;
+        try {
+          entities = JSON.parse(jsonText);
+        } catch {
+          entities = [];
+        }
+      }
+      if (!Array.isArray(entities)) entities = [];
+
+      res.json(entities);
+    } catch (error: any) {
+      console.error('Architect Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // General Assistant Endpoint
+  app.post('/api/assistant/chat', async (req, res) => {
+    try {
+      const { message, history, context } = req.body;
+
+      const systemPrompt = `You are the Spatial OS Intelligence Assistant.
+You have access to the current workspace state:
+- Pods: ${JSON.stringify(context?.pods)}
+- Scenes: ${JSON.stringify(context?.scenes)}
+- View Mode: ${context?.viewMode}
+
+You can answer questions about the infrastructure or scenes. If the user wants to perform an action, suggest the specific command. Be concise, technical, and helpful. Use markdown for formatting.`;
+
+      const transcript = (history || [])
+        .map((m: any) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`)
+        .join('\n');
+      const userPrompt = `${transcript ? transcript + '\n' : ''}User: ${message}`;
+
+      const aiOut = await tryOpencode(systemPrompt, userPrompt);
+      if (aiOut) {
+        res.json({ content: aiOut });
+        return;
+      }
+
+      // Local heuristic fallback
+      const fallback = `Spatial OS ready. I can help with **${context?.viewMode || 'pods'}**, scenes (${(context?.scenes || []).length}), and ${(context?.pods || []).length} pod(s). Ask me to reboot a pod, save a scene, or list running nodes.`;
+      res.json({ content: fallback, source: 'fallback' });
+    } catch (error: any) {
+      console.error('Assistant Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
