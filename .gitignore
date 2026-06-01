@@ -1,0 +1,107 @@
+# ========================
+# Node.js / npm
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.npm
+.node_repl_history
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.p12
+secrets/
+config/secrets.*
+
+# ========================
+# Build / Dist
+# ========================
+dist/
+build/
+out/
+.cache/
+*.min.js
+*.min.css
+*.bundle.js
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+ ========================
+# Logs
+# ========================
+logs/
+*.log
+
+# ========================
+# PM2
+# ========================
+.pm2/
+ecosystem.config.js.bak
+
+# ========================
+# Nginx
+# ========================
+nginx/ssl/
+nginx/*.key
+nginx/*.crt
+
+# ========================
+# Kubernetes / Cloud
+# ========================
+kubeconfig
+*.kubeconfig
+k8s/secrets/
+k8s/*-secret.yaml
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+
+# ========================
+# Oracle Cloud (OCI)
+# ========================
+~/.oci/
+oci_api_key*.pem
+
+# ========================
+# 3D / Assets
+# ========================
+*.glb.bak
+*.gltf.bak
+uploads/
+tmp/
+temp/
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Editors / IDEs
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ========================
+# SSL Certs (Nginx/Let's Encrypt)
+# ========================
+/etc/letsencrypt/
+certbot/
