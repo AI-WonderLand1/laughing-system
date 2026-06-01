@@ -52,7 +52,7 @@ export default function IntegrityDashboard() {
     recordError(simErrorSection, simErrorCode, simErrorMessage);
     
     // Auto-generate some randomized future defaults
-    const sections = ['💳 Billing Gateway', 'Asset PipelinePass', 'Plugins & Extensions', 'Spatial RenderEngine', 'Source Compiler'];
+    const sections = ['Asset PipelinePass', 'Plugins & Extensions', 'Spatial RenderEngine', 'Source Compiler'];
     const codes = ['ERR_WEB_SOCKET_HALT', 'ERR_DRACO_FAIL_MESH_COMPRESS', 'ERR_WASM_MEM_CORRUPT', 'ERR_SECURE_AUTH_TIMEOUT'];
     const messages = [
       'Active connection websocket closed abruptly by remote infrastructure peer.',
@@ -264,7 +264,6 @@ export default function IntegrityDashboard() {
                     className="w-full bg-black/45 border border-white/10 rounded-lg p-2 font-mono text-[10px] text-zinc-300 uppercase focus:border-ui-accent outline-none"
                   >
                     <option value="Kubernetes Pod Studio">Kubernetes Pod Studio</option>
-                    <option value="💳 Billing & Plans">💳 Billing & Plans</option>
                     <option value="Asset Pipeline Compiler">Asset Pipeline Compiler</option>
                     <option value="Spatial Core Canvas">Spatial Core Canvas</option>
                     <option value="Source Gulp/Vite Compiler">Source Gulp/Vite Compiler</option>

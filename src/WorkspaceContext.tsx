@@ -250,14 +250,7 @@ function onUpdate(time, activeMesh, scene) {
             timestamp: Date.now() - 3600000,
             resolved: false
           },
-          {
-            id: 'err_stripe_key',
-            section: '💳 Billing & Plans',
-            code: 'ERR_STRIPE_NOT_CONFIGURED',
-            message: 'Stripe webhook validation operating in secure proxy sandbox. Livesync keys missing.',
-            timestamp: Date.now() - 7200000,
-            resolved: false
-          }
+          // Stripe error entry removed — no middleman billing
         ];
         setErrors(initialErrors);
         localStorage.setItem('spatial_errors', JSON.stringify(initialErrors));
@@ -980,7 +973,7 @@ function onUpdate(time, activeMesh, scene) {
     addAgentLog(`Consulting secure AI engine for remediation instructions for ${errorObj.code}...`, 'thinking');
     
     try {
-      const res = await fetch('/api/security/remediate-error', {
+      const res = await fetch('/api/config/lint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: errorObj })

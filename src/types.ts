@@ -1,4 +1,4 @@
-export type ViewMode = 'pod-studio' | 'design' | 'engine' | 'spatial' | 'code' | 'pipeline' | 'settings' | 'infrastructure' | 'assistant' | 'plugins' | 'billing' | 'integrity' | 'database' | 'git' | 'search';
+export type ViewMode = 'pod-studio' | 'deploy' | 'design' | 'engine' | 'spatial' | 'code' | 'pipeline' | 'settings' | 'infrastructure' | 'assistant' | 'plugins' | 'integrity' | 'database' | 'git' | 'search';
 
 export interface WorkspaceError {
   id: string;

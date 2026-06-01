@@ -3,19 +3,6 @@ import { createServer as createHttpServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import Stripe from 'stripe';
-
-let stripeClient: Stripe | null = null;
-function getStripeInstance(): Stripe | null {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return null;
-  if (!stripeClient) {
-    stripeClient = new Stripe(key, {
-      apiVersion: '2023-10-16' as any,
-    });
-  }
-  return stripeClient;
-}
 
 // ----------------- OPENCODE AI PROVIDER -----------------
 // Talks to a local `opencode serve` instance (default: http://127.0.0.1:4096)
@@ -267,51 +254,66 @@ async function startServer() {
     });
   });
 
-  // Secure Dynamic Auto-Remediation and AI Healer endpoint
-  app.post('/api/security/remediate-error', async (req, res) => {
+  // Config Lint endpoint — validates a generated config file and returns suggestions
+  app.post('/api/config/lint', async (req, res) => {
     try {
-      const { error } = req.body;
-      if (!error) {
-        return res.status(400).json({ error: "No error payload supplied for healing request." });
+      const { filePath, content, target, error } = req.body;
+
+      // Backwards compat: if old-style error object, return a simple check
+      if (error) {
+        const suggestion = `To resolve "${error.code || 'unknown'}": check the ${error.section || 'component'} configuration and ensure all required fields are set.`;
+        return res.json({ success: true, solution: suggestion, source: 'rules' });
       }
 
-      let solution = "";
+      if (!filePath || !content) {
+        return res.status(400).json({ error: "filePath and content are required" });
+      }
 
-      const systemPrompt = `You are the AetherOS Live-Response AI Officer for a spatial workspace. Behave like a precise patch-log generator. Output at most 2 sentences, prefixed with "REMEDIATION APPLIED:" and ending with a period. No prose, no preamble, no markdown.`;
-      const userPrompt = `Workspace error to heal:
-- Section: ${error.section}
-- Code: ${error.code}
-- Message: ${error.message}
+      // Run local validation checks
+      const issues: string[] = [];
+      const suggestions: string[] = [];
 
-Produce the remediation patch log line now.`;
+      // Check for placeholder values
+      if (content.includes('your-project') || content.includes('YOUR_')) {
+        issues.push('Contains placeholder values (your-project, YOUR_*)');
+        suggestions.push('Replace all placeholder values with your actual project name and credentials');
+      }
 
-      const aiOut = await tryOpencode(systemPrompt, userPrompt);
-      if (aiOut) {
-        solution = aiOut.replace(/^["'`\s]+|["'`\s]+$/g, '');
-        if (!solution.toUpperCase().startsWith('REMEDIATION APPLIED')) {
-          solution = `REMEDIATION APPLIED: ${solution}`;
+      // Check for syntax issues in JSON/YAML
+      const ext = filePath.split('.').pop()?.toLowerCase();
+      if (ext === 'json') {
+        try {
+          JSON.parse(content);
+        } catch {
+          issues.push('Invalid JSON syntax');
+          suggestions.push('Fix the JSON syntax error — check for missing commas, brackets, or quotes');
         }
       }
 
-      if (!solution) {
-        if (error.code?.includes('OOM') || error.code?.includes('MEM')) {
-          solution = `REMEDIATION APPLIED: Executed garbage collection trigger to clear active heap indices. Scaled cluster container memory limit thresholds up to 4096MB and restarted routing safely.`;
-        } else if (error.code?.includes('STRIPE')) {
-          solution = `REMEDIATION APPLIED: Configured local secure proxy sandbox credentials inside process thread. TLS checkout loop verified and operating in high-security trial emulation mode.`;
-        } else if (error.code?.includes('DRACO')) {
-          solution = `REMEDIATION APPLIED: Cleaned Draco vertex mesh decompression buffer overflow caches. Reloaded WebAssembly runtime pipelines to flush faulty coordinate arrays.`;
-        } else {
-          solution = `REMEDIATION APPLIED: Dynamic sandbox container refreshed. Flushed TCP connections, isolated target vector thread, and normalized host component bindings.`;
+      // Optionally use AI for deeper checks
+      let aiSuggestions: string[] = [];
+      if (target) {
+        const aiOut = await tryOpencode(
+          `You are a config file validator. Review this ${ext || 'config'} file for a ${target} deployment. List any issues or improvements in 1-2 short bullet points. Be specific and technical. No preamble.`,
+          `File: ${filePath}\nTarget: ${target}\n\n${content.substring(0, 3000)}`
+        );
+        if (aiOut) {
+          aiSuggestions = aiOut.split('\n').filter(l => l.trim()).slice(0, 5);
         }
       }
 
-      res.json({ success: true, solution, source: aiOut ? 'opencode' : 'rules' });
+      res.json({
+        success: true,
+        valid: issues.length === 0,
+        issues,
+        suggestions: [...suggestions, ...aiSuggestions],
+        source: aiSuggestions.length ? 'opencode' : 'rules'
+      });
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });
     }
   });
-  // ----------------------------------------------------------------------------
 
   const httpServer = createHttpServer(app);
 
@@ -382,170 +384,8 @@ You can answer questions about the infrastructure or scenes. If the user wants t
     }
   });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `You are the AetherOS Spatial Architect. 
-        Current scene entities: ${JSON.stringify(currentEntities)}
-        User request: ${prompt}
-        
-        Generate NEW entities to add to the scene based on this prompt. 
-        Entities can be 'mesh' or 'light'.
-        Mesh properties include: color, scale.
-        Light properties include: color, intensity.
-        
-        Return ONLY a JSON array of NEW entities.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                type: { type: Type.STRING, description: "mesh or light" },
-                x: { type: Type.NUMBER },
-                y: { type: Type.NUMBER },
-                z: { type: Type.NUMBER },
-                scale: { type: Type.NUMBER },
-                properties: {
-                  type: Type.OBJECT,
-                  properties: {
-                    color: { type: Type.STRING },
-                    intensity: { type: Type.NUMBER },
-                    emissive: { type: Type.BOOLEAN }
-                  }
-                }
-              },
-              required: ["name", "type", "x", "y", "z"]
-            }
-          }
-        }
-      });
-
-      res.json(JSON.parse(response.text || '[]'));
-    } catch (error: any) {
-      console.error('Architect Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  // General Assistant Endpoint
-  app.post('/api/assistant/chat', async (req, res) => {
-    try {
-      const { message, history, context } = req.body;
-      
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const model = ai.getGenerativeModel({ model: "gemini-3-flash-preview" });
-
-      const systemPrompt = `You are the Spatial OS Intelligence Assistant.
-      You have access to the current workspace state:
-      - Pods: ${JSON.stringify(context.pods)}
-      - Scenes: ${JSON.stringify(context.scenes)}
-      - View Mode: ${context.viewMode}
-      
-      You can answer questions about the infrastructure or scenes.
-      If the user wants to perform an action (like rebooting a pod or creating a scene), suggest the specific command.
-      Be concise, technical, and helpful. Use markdown for formatting.`;
-
-      const chat = model.startChat({
-        history: history.map((m: any) => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        })),
-        generationConfig: {
-          maxOutputTokens: 500,
-        },
-      });
-
-      const result = await chat.sendMessage([
-        { text: systemPrompt },
-        { text: message }
-      ]);
-      const responseText = result.response.text();
-
-      res.json({ content: responseText });
-    } catch (error: any) {
-      console.error('Assistant Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Stripe Billing - Create Checkout Session
-  app.post('/api/stripe/create-checkout-session', async (req, res) => {
-    try {
-      const stripe = getStripeInstance();
-      if (!stripe) {
-        // Handle missing key by letting front-end know we should operate in sandbox trial mode
-        return res.json({ 
-          error: "Stripe is not configured. Operability active via developer sandbox mode.",
-          isMock: true 
-        });
-      }
-
-      const { planId, planName, planPrice, returnUrl } = req.body;
-      const cents = Math.round((planPrice || 0) * 100);
-
-      // Create a checkout session using automatic price session generator
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: planName,
-                description: `AetherOS ${planName} - premium cloud compiler cluster stack.`,
-              },
-              unit_amount: cents,
-              recurring: {
-                interval: 'month',
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}&plan=${planId}`,
-        cancel_url: `${returnUrl}?status=cancel`,
-      });
-
-      res.json({ url: session.url, id: session.id });
-    } catch (error: any) {
-      console.error('Stripe Session Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Stripe Billing - Verify Session
-  app.get('/api/stripe/retrieve-session', async (req, res) => {
-    try {
-      const stripe = getStripeInstance();
-      const session_id = req.query.session_id;
-
-      if (!session_id || typeof session_id !== 'string') {
-        return res.status(400).json({ error: "Missing session_id query parameter" });
-      }
-
-      if (!stripe) {
-        return res.json({ error: "Stripe key is missing in environment", isMock: true });
-      }
-
-      const session = await stripe.checkout.sessions.retrieve(session_id);
-      res.json({
-        id: session.id,
-        payment_status: session.payment_status,
-        customer_email: session.customer_details?.email,
-        subscription_id: session.subscription,
-      });
-    } catch (error: any) {
-      console.error('Stripe Status Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Stripe Billing endpoints removed — no middleman billing
+  //
 
   const io = new Server(httpServer, {
     cors: {

@@ -14,11 +14,12 @@ import KubernetesView from './KubernetesView';
 import AIAssistant from './AIAssistant';
 import PluginsView from './PluginsView';
 import PodStudio from './PodStudio';
-import BillingView from './BillingView';
+// BillingView removed — no middleman billing
 import IntegrityDashboard from './IntegrityDashboard';
 import DatabaseView from './DatabaseView';
 import GitView from './GitView';
 import SearchView from './SearchView';
+import DeployGenerator from './DeployGenerator';
 import { ChevronDown, BrainCircuit, Box, Sparkles, Layers } from 'lucide-react';
 
 const COLORS = {
@@ -45,6 +46,7 @@ const COLORS = {
 
 const NAV_TABS = [
   { id: "pod-studio", label: "📦 3D Pod Studio" },
+  { id: "deploy", label: "📦 Generate Deploy" },
   { id: "assistant", label: "AI Intelligence" },
   { id: "search", label: "🔍 Search" },
   { id: "git", label: "🔀 Version Control" },
@@ -58,7 +60,7 @@ const NAV_TABS = [
   { id: "pipeline", label: "Asset Pipeline" },
   { id: "plugins", label: "Plugins & Exts" },
   { id: "settings", label: "Settings" },
-  { id: "billing", label: "💳 Billing & Plans" },
+  // billing tab removed — no middleman billing
 ];
 
 export default function Shell() {
@@ -173,6 +175,7 @@ export default function Shell() {
 
     switch(viewMode) {
       case 'pod-studio': return <PodStudio />;
+      case 'deploy': return <DeployGenerator />;
       case 'design': return <CanvasEditor />;
       case 'engine': return <EngineEditor />;
       case 'spatial': return <SpatialView />;
@@ -182,7 +185,6 @@ export default function Shell() {
       case 'infrastructure': return <KubernetesView />;
       case 'assistant': return <AIAssistant />;
       case 'plugins': return <PluginsView />;
-      case 'billing': return <BillingView />;
       case 'integrity': return <IntegrityDashboard />;
       case 'database': return <DatabaseView />;
       case 'git': return <GitView />;

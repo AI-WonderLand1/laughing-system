@@ -246,7 +246,7 @@ export default function Landing() {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-sm font-bold tracking-tight">AetherOS</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--ui-text-muted)]">Spatial Cloud IDE</span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--ui-text-muted)]">Config Generator</span>
             </div>
           </a>
           <div className="hidden md:flex items-center gap-6 text-[13px] text-[var(--ui-text-muted)]">
@@ -254,7 +254,7 @@ export default function Landing() {
             <a href="#templates" className="hover:text-white transition-colors">Templates</a>
             <a href="#deploy" className="hover:text-white transition-colors">Deploy</a>
             <a href="#how" className="hover:text-white transition-colors">How it works</a>
-            <a href="#why" className="hover:text-white transition-colors">Why spatial</a>
+            <a href="#why" className="hover:text-white transition-colors">What's included</a>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <a href="https://github.com" target="_blank" rel="noreferrer"
@@ -269,7 +269,7 @@ export default function Landing() {
             </button>
             <button onClick={handleLaunch}
               className="text-[12px] font-semibold px-3.5 py-1.5 rounded-md bg-[var(--ui-accent)] text-black hover:brightness-110 transition-all flex items-center gap-1.5">
-              Launch Workspace <ArrowRight className="w-3.5 h-3.5" />
+              Generate bundle <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </nav>
@@ -284,33 +284,33 @@ export default function Landing() {
               v3.0 · Now with Godot & WebGPU
             </div>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[0.95]">
-              A new way of <br />
+              Generate deploy configs <br />
               <span className="bg-gradient-to-r from-[#00d4ff] via-[#8b5cf6] to-[#10b981] bg-clip-text text-transparent">
-                doing everything.
+                for your 3D engine.
               </span>
             </h1>
             <p className="mt-6 text-lg text-[var(--ui-text-muted)] max-w-xl leading-relaxed">
-              AetherOS is a cloud IDE for 3D — like Coder, but your file tree is a spatial scene, your editor compiles to <span className="text-white">six engines</span>, and your workspace ships as a <span className="text-white">Kubernetes pod</span> or <span className="text-white">Docker image</span>.
+              Pick a template (Three.js, Babylon, Godot, Unreal…), pick a deployment target (Vercel, K8s, Tauri, Capacitor…), and download a bundle of real, runnable config files. You deploy to <span className="text-white">your own infrastructure</span>. No cluster provisioning, no middleman, no vendor lock.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button onClick={handleLaunch}
                 className="group inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white text-black font-semibold text-sm hover:brightness-95 transition-all">
                 <Play className="w-4 h-4 fill-black" />
-                Launch a workspace
+                Generate a deploy bundle
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
               <a href="#templates"
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-white/10 text-white/90 text-sm hover:bg-white/5 transition-colors">
-                Browse 3D templates
+                Browse templates
               </a>
             </div>
 
             <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg">
               {[
-                { k: '8',   v: 'engines supported' },
-                { k: '12k+', v: 'workspaces spun up' },
-                { k: '<8s', v: 'pod cold start' }
+                { k: '8',   v: 'engine templates' },
+                { k: '27', v: 'deploy targets' },
+                { k: '0', v: 'infrastructure fees' }
               ].map(s => (
                 <div key={s.v}>
                   <div className="text-2xl font-bold tracking-tight">{s.k}</div>
@@ -373,18 +373,18 @@ export default function Landing() {
       {/* ============== HOW IT WORKS ============== */}
       <section id="how" className="relative z-10 max-w-7xl mx-auto px-6 py-24">
         <div className="max-w-2xl mb-14">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--ui-accent)] mb-3">How it works</div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">From template to running pod, in one workspace.</h2>
-          <p className="mt-4 text-[var(--ui-text-muted)] text-lg">
-            Pick a 3D engine template, edit in the browser, and ship to a Kubernetes pod, a Docker image, or a dev container — no local install required.
-          </p>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--ui-accent)] mb-3">How it works</div>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Pick a template. Pick a target. Download configs.</h2>
+            <p className="mt-4 text-[var(--ui-text-muted)] text-lg">
+              No infra provisioned on your behalf. Every file is a real, runnable config you take to <span className="text-white">your</span> Vercel, <span className="text-white">your</span> K8s cluster, or <span className="text-white">your</span> Docker host.
+            </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { step: '01', title: 'Pick a template',     desc: 'Start from a curated engine starter: Three.js, Babylon, PlayCanvas, Unity WASM, Unreal, Godot, or WebGPU. Each ships with HMR, glTF pipeline, and a Scene Graph already wired.', icon: Box },
-            { step: '02', title: 'Edit in space',       desc: 'Drag meshes into the Spatial Canvas, run the AI Architect to grow the scene, and iterate with live preview. Everything is checkpointed, diffable, and reversible.', icon: Sparkles },
-            { step: '03', title: 'Ship to a cluster',   desc: 'Spin up a k8s pod, scale to a deployment, or build a Docker image. OpenCode agents watch your pods and heal them when they drift.', icon: Cloud }
+            { step: '01', title: 'Pick a template',     desc: 'Choose from 8 engine templates: Three.js, Babylon, PlayCanvas, Unity WASM, Unreal, Godot, WebGPU, or bring your own. Each starter ships with TypeScript, module bundling, and an empty 3D scene.', icon: Box },
+            { step: '02', title: 'Configure the target', desc: 'Select from 27 deployment targets — Vercel, K8s, Docker, Fly.io, Tauri, Capacitor, WebXR, npm, and more. Preview all generated files before download.', icon: Sparkles },
+            { step: '03', title: 'Download & deploy',   desc: 'Get a zip bundle of real, runnable files: Dockerfile, k8s manifests, vercel.json, fly.toml, etc. Push to your own infra — no middleman, no cluster fees.', icon: Cloud }
           ].map(s => (
             <div key={s.step} className="relative p-6 rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent hover:border-[var(--ui-accent)]/30 transition-colors">
               <div className="text-[10px] font-mono text-[var(--ui-accent)] mb-3">{s.step}</div>
@@ -427,8 +427,8 @@ export default function Landing() {
                 </div>
                 <div className="text-sm font-mono text-white/90 mb-1.5">{t.name}</div>
                 <p className="text-[12px] text-[var(--ui-text-muted)] leading-relaxed">{t.desc}</p>
-                <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={handleLaunch}
+                  <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { sessionStorage.setItem('pendingDeployEngine', t.engines[0]); handleLaunch(); }}
                     className="text-[11px] font-semibold px-2.5 py-1 rounded bg-[var(--ui-accent)] text-black">
                     Use template
                   </button>
@@ -443,34 +443,34 @@ export default function Landing() {
       {/* ============== WHY SPATIAL ============== */}
       <section id="why" className="relative z-10 max-w-7xl mx-auto px-6 py-24">
         <div className="max-w-2xl mb-14">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--ui-accent)] mb-3">Why spatial</div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Your IDE is flat. Your code isn't.</h2>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--ui-accent)] mb-3">What's in the bundle</div>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Every file is real. Every step is yours.</h2>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           {[
             {
-              kind: 'cube' as const, title: 'Spatial Canvas', desc: 'A real Three.js scene is the workspace. Add, move, and group meshes the way you think about them — spatially.',
+              kind: 'cube' as const, title: 'Real config files', desc: 'Dockerfile, k8s/ manifests, vercel.json, fly.toml, netlify.toml, railway.toml, render.yaml, amplify.yml, firebase.json, wrangler.toml, tauri.conf.json, electron/main.cjs, capacitor.config.ts, and more.',
               icon: Box
             },
             {
-              kind: 'octa' as const, title: 'AI Spatial Architect', desc: 'Describe a scene in plain English. The Architect returns real WorldEntity objects with transforms, materials, and lights.',
+              kind: 'octa' as const, title: '8 engines, one bundle', desc: 'Three.js, Babylon.js, PlayCanvas, Unity WASM, Unreal, Godot 4, WebGPU, or custom. The generator produces matching source scaffolds + Dockerfiles per engine.',
               icon: Sparkles
             },
             {
-              kind: 'sphere' as const, title: 'OpenCode-native agent', desc: 'Powered by OpenCode AI. Your OpenCode server is the brain — sessions, tools, file edits, terminal, all in one plane.',
+              kind: 'sphere' as const, title: 'Deploy steps included', desc: 'Every bundle contains a bash-ready deploy steps list. k8s apply, fly deploy, vercel deploy, cap open — whatever your target requires.',
               icon: Command
             },
             {
-              kind: 'torus' as const, title: 'Cluster as a feature', desc: 'Pods, deployments, dev containers, Docker images — first-class. No plugin, no YAML, no kubectl. Just click.',
+              kind: 'torus' as const, title: 'No middleman', desc: 'You own every file. No cluster gets provisioned on your behalf. Your infra, your AWS bill, your K8s RBAC, your Vercel team.',
               icon: Cloud
             },
             {
-              kind: 'cone' as const, title: 'Real-time collab', desc: 'Multiplayer scene sync over Socket.IO. See cursors, entity moves, and AI edits live in the canvas.',
+              kind: 'cone' as const, title: 'WebXR + native shells', desc: 'Tauri (8 MB desktop), Electron, Capacitor (iOS/Android), PWA, WebXR (Quest/Vision Pro). Real configs, real builds.',
               icon: GitBranch
             },
             {
-              kind: 'cube' as const, title: 'Database, Git, Search', desc: 'Postgres browser, branch & history, full-text search over scenes, entities, files, and symbols. Cmd-K everything.',
+              kind: 'cube' as const, title: 'npm & CDN publishing', desc: 'Publish as @your-org/engine, push assets to Cloudflare R2 / S3 / Fastly / Bunny CDN. All configs generated, no extra tooling needed.',
               icon: Database
             }
           ].map((f, i) => (
@@ -497,7 +497,7 @@ export default function Landing() {
             <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--ui-accent)] mb-3">Deploy anywhere</div>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Ship your workspace, not just your code.</h2>
             <p className="mt-4 text-[var(--ui-text-muted)] text-lg">
-              {DEPLOY_TARGETS.reduce((n, g) => n + g.items.length, 0)} first-class deployment targets. The OpenCode agent wires ingress, secrets, and HMR for you.
+              {DEPLOY_TARGETS.reduce((n, g) => n + g.items.length, 0)} deploy targets, each producing real config files you own and deploy yourself. No infra runs on our side.
             </p>
           </div>
 
@@ -539,23 +539,27 @@ export default function Landing() {
             <span className="ml-3 text-[11px] font-mono text-[var(--ui-text-muted)]">spatial-shell · k8s-pod</span>
           </div>
           <pre className="px-5 py-5 text-[12.5px] font-mono leading-relaxed text-[var(--ui-text-muted)] overflow-x-auto">
-{`$ aether spin-up three --target k8s-deployment --replicas 3
-✔ provisioning 3D Cluster Stack: THREE with Target K8S_DEPLOYMENT
-✔ applying load balancers and ingress hosts config...
-✔ Kubernetes Deployment finalized successfully: 3 active replicas running perfectly.
+{`$ aether generate three --target k8s-deployment --name my-3d-app
+✔ generated 27 files (14.2KB)
+  ├─ package.json          vite + three starter
+  ├─ src/main.ts           engine entry point
+  ├─ Dockerfile            multi-stage, nginx-alpine
+  ├─ k8s/deployment.yaml   3 replicas, autoscale
+  ├─ k8s/service.yaml      ClusterIP :80
+  ├─ k8s/ingress.yaml      TLS via cert-manager
+  ├─ k8s/hpa.yaml          CPU target 80%
+  └─ README.md             deploy steps included
 
-$ aether ship --target edge-worker --region iad
-✔ compiling edge runtime bundle (Cloudflare Workers)
-✔ shimming WebGPU → compute workers (WASM fallback enabled)
-✔ edge worker live in iad. cold start < 5ms.
+$ aether generate babylon --target vercel --name showroom-3d
+✔ generated 16 files (8.1KB)
+  ├─ vercel.json           SPA rewrites + cache headers
+  └─ src/main.ts           Babylon engine + ArcRotateCamera
 
-$ aether deploy --target webxr --runtime meta-quest
-✔ generating left/right eye render targets at 90Hz
-✔ hooking controller raycast + pinch gestures
-✔ WebXR build deployed for meta-quest. Enter VR from the canvas.
-
-$ aether publish --target npm --name @aether/three-engine
-✔ @aether/three-engine@latest published. public access.`}
+$ aether generate godot --target tauri --name game-launcher
+✔ generated 24 files (32.1KB)
+  ├─ src-tauri/tauri.conf.json  identifiers, window, CSP
+  ├─ Dockerfile             godot 4 web export as base
+  └─ deploy/vps-setup.sh   Ansible-ready boostrap`}
           </pre>
         </div>
       </section>
@@ -564,16 +568,16 @@ $ aether publish --target npm --name @aether/three-engine
       <section className="relative z-10 border-t border-white/5">
         <div className="max-w-4xl mx-auto px-6 py-24 text-center">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Stop building 3D the <span className="line-through text-[var(--ui-text-muted)]">flat</span> way.
+            Deploy to your infra, not ours.
           </h2>
           <p className="mt-4 text-[var(--ui-text-muted)] text-lg max-w-xl mx-auto">
-            Launch a workspace, pick an engine template, and ship the cluster in under a minute.
+            Pick a template, pick a target, download the configs. You handle the deploy. We handle nothing — and that's the point.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <button onClick={handleLaunch}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--ui-accent)] text-black font-semibold text-sm hover:brightness-110 transition-all">
               <Sparkles className="w-4 h-4" />
-              Launch a workspace
+              Generate a deploy bundle
               <ArrowRight className="w-4 h-4" />
             </button>
             <a href="#how"
@@ -596,7 +600,7 @@ $ aether publish --target npm --name @aether/three-engine
             <a href="#engines" className="hover:text-white">Engines</a>
             <a href="#templates" className="hover:text-white">Templates</a>
             <a href="#deploy" className="hover:text-white">Deploy</a>
-            <a href="#why" className="hover:text-white">Why spatial</a>
+            <a href="#why" className="hover:text-white">What's included</a>
           </div>
           <div className="md:ml-auto">© 2026 AetherOS · Built in 3D</div>
         </div>
